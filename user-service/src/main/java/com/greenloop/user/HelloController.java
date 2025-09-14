@@ -1,2 +1,13 @@
-package com.greenloop.user;public class HelloController {
+package com.greenloop.user;
+
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class HelloController {
+    @RequestMapping("/hello")
+    public String hello(){
+        return "Hello User Service";
+    }
+
 }
