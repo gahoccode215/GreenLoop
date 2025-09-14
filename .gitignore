@@ -29,3 +29,29 @@ target/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# OS specific files
+Thumbs.db
+*~
+
+# Java compiled files
+*.class
+
+# Package files
+*.jar
+*.war
+*.nar
+*.ear
+
+# Virtual machine crash logs
+hs_err_pid*
+
+# Environment files
+.env
+.env.local
+.env.*.local
