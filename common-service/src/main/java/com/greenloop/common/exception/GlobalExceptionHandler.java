@@ -1,58 +1,52 @@
 package com.greenloop.common.exception;
 
-import com.greenloop.common.dto.ApiResponse;
+import com.greenloop.common.dto.ApiResponseDTO;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@ControllerAdvice
+@RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Object>> handleValidationErrors(
-            MethodArgumentNotValidException ex, WebRequest request) {
-
-        List<String> errors = ex.getBindingResult().getFieldErrors()
-                .stream()
-                .map(FieldError::getDefaultMessage)
-                .collect(Collectors.toList());
-
-        ApiResponse<Object> response = ApiResponse.error("Validation failed", errors);
-        response.setPath(request.getDescription(false));
-
-        return ResponseEntity.badRequest().body(response);
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleBusinessException(
+            BusinessException ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponseDTO.error(
+                        ex.getMessage(),
+                        request.getRequestURI()
+                ));
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiResponse<Object>> handleRuntimeException(
-            RuntimeException ex, WebRequest request) {
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponseDTO<Object>> handleValidationException(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
 
-        log.error("Runtime exception: {}", ex.getMessage());
+        List<String> errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.toList());
 
-        ApiResponse<Object> response = ApiResponse.error(ex.getMessage(), "RUNTIME_ERROR");
-        response.setPath(request.getDescription(false));
-
-        return ResponseEntity.badRequest().body(response);
+        return ResponseEntity.badRequest()
+                .body(ApiResponseDTO.error("Validation failed", errors, request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Object>> handleGenericException(
-            Exception ex, WebRequest request) {
+    public ResponseEntity<ApiResponseDTO<Object>> handleGenericException(
+            Exception ex, HttpServletRequest request) {
 
-        log.error("Unexpected error: {}", ex.getMessage(), ex);
+        log.error("Error: {}", ex.getMessage(), ex);
 
-        ApiResponse<Object> response = ApiResponse.error("Internal server error", "INTERNAL_ERROR");
-        response.setPath(request.getDescription(false));
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponseDTO.error(ex.getMessage(), request.getRequestURI()));
     }
 }

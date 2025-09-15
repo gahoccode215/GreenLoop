@@ -1,4 +1,3 @@
-// common-lib/src/main/java/com/greenloop/common/dto/ApiResponse.java
 package com.greenloop.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -15,26 +14,25 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApiResponse<T> {
+public class ApiResponseDTO<T> {
     private boolean success;
     private String message;
     private T data;
     private List<String> errors;
-    private String errorCode;
     private LocalDateTime timestamp;
     private String path;
 
-    public static <T> ApiResponse<T> success(T data) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDTO<T> success(T data) {
+        return ApiResponseDTO.<T>builder()
                 .success(true)
-                .message("Success")
+                .message("success")
                 .data(data)
                 .timestamp(LocalDateTime.now())
                 .build();
     }
 
-    public static <T> ApiResponse<T> success(T data, String message) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDTO<T> success(T data, String message) {
+        return ApiResponseDTO.<T>builder()
                 .success(true)
                 .message(message)
                 .data(data)
@@ -42,30 +40,30 @@ public class ApiResponse<T> {
                 .build();
     }
 
-    // Error response factory methods
-    public static <T> ApiResponse<T> error(String message) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDTO<T> error(String message, String path) {
+        return ApiResponseDTO.<T>builder()
                 .success(false)
                 .message(message)
+                .path(path)
                 .timestamp(LocalDateTime.now())
                 .build();
     }
 
-    public static <T> ApiResponse<T> error(String message, String errorCode) {
-        return ApiResponse.<T>builder()
-                .success(false)
-                .message(message)
-                .errorCode(errorCode)
-                .timestamp(LocalDateTime.now())
-                .build();
-    }
-
-    public static <T> ApiResponse<T> error(String message, List<String> errors) {
-        return ApiResponse.<T>builder()
+    public static <T> ApiResponseDTO<T> error(String message, List<String> errors, String path) {
+        return ApiResponseDTO.<T>builder()
                 .success(false)
                 .message(message)
                 .errors(errors)
+                .path(path)
                 .timestamp(LocalDateTime.now())
                 .build();
+    }
+
+    public static <T> ApiResponseDTO<T> error(String message) {
+        return error(message, (String) null);
+    }
+
+    public static <T> ApiResponseDTO<T> error(String message, List<String> errors) {
+        return error(message, errors, null);
     }
 }

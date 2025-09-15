@@ -1,4 +1,4 @@
-package com.greenloop.auth.auth.dto;
+package com.greenloop.auth.auth.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

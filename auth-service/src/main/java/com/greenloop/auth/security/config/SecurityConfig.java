@@ -1,6 +1,6 @@
-package com.greenloop.auth.config;
+package com.greenloop.auth.security.config;
 
-import com.greenloop.auth.security.JwtAuthenticationFilter; // ADD THIS IMPORT
+import com.greenloop.auth.security.filter.JwtAuthenticationFilter; // ADD THIS IMPORT
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +26,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthFilter; // ADD THIS FIELD
+    private final JwtAuthenticationFilter jwtAuthFilter;
+
+    private final String[] PUBLIC_ENDPOINTS = {
+            "/api/v1/public/**",
+            "/api/v1/auth/login",
+            "/api/v1/auth/register"
+    };
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -40,34 +47,27 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-
+        CorsConfiguration corsConfiguration = new CorsConfiguration();
+        corsConfiguration.setAllowedOrigins(List.of("*"));
+        corsConfiguration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        corsConfiguration.setAllowedHeaders(List.of("*"));
+        corsConfiguration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", corsConfiguration);
         return source;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        List<String> publicEndpoints = List.of(
-                "/api/v1/public/**",
-                "/api/v1/auth/login",
-                "/api/v1/auth/test",
-                "/api/v1/auth/register"
-        );
 
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(publicEndpoints.toArray(String[]::new)).permitAll()
-                        .anyRequest().authenticated()
+                .authorizeHttpRequests(request ->
+                        request.requestMatchers(PUBLIC_ENDPOINTS).permitAll().anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class); // ADD THIS LINE
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

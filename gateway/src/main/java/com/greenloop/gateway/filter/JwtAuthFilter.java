@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
@@ -31,14 +32,12 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
+            log.info("path: {}", path);
 
-            log.info("JWT Filter: {}", path);
-
-            // Get Authorization header
             String authHeader = request.getHeaders().getFirst("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 log.warn("No Authorization header: {}", path);
-                return onError(exchange, HttpStatus.UNAUTHORIZED);
+                return onError(exchange);
             }
 
             String token = authHeader.substring(7);
@@ -47,34 +46,43 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 Claims claims = validateToken(token);
                 String username = claims.getSubject();
 
-                log.info("JWT OK - User: {}", username);
-
-                // Forward user info to downstream
+                log.info("Forwarding to downstream with X-User-Id: {}", username);
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-Id", username)
                         .build();
 
+                log.info("Continuing to next filter in chain");
                 return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
             } catch (Exception e) {
-                log.error("JWT failed: {}", e.getMessage());
-                return onError(exchange, HttpStatus.UNAUTHORIZED);
+                log.warn("JWT invalid: {}", e.getMessage());
+                return onError(exchange);
             }
         };
     }
 
     private Claims validateToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            log.info("Token validated - User: {}, Exp: {}",
+                    claims.getSubject(), claims.getExpiration());
+            return claims;
+
+        } catch (Exception e) {
+            log.error("Token validation failed: {}", e.getMessage());
+            throw e;
+        }
     }
 
-    private Mono<Void> onError(org.springframework.web.server.ServerWebExchange exchange, HttpStatus status) {
+    private Mono<Void> onError(ServerWebExchange exchange) {
         ServerHttpResponse response = exchange.getResponse();
-        response.setStatusCode(status);
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
         return response.setComplete();
     }
 

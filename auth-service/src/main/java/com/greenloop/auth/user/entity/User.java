@@ -1,7 +1,8 @@
 package com.greenloop.auth.user.entity;
 
-import com.greenloop.auth.permission.entity.Permission;
 import com.greenloop.auth.role.entity.Role;
+import com.greenloop.auth.user.enums.UserStatus;
+import com.greenloop.auth.user.enums.UserType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -29,7 +30,7 @@ public class User implements UserDetails {
     private String id;
 
     @Column(unique = true, nullable = false)
-    private String email; // Primary identifier cho tất cả user types
+    private String email;
 
     @Column(nullable = false)
     private String password;
@@ -40,21 +41,19 @@ public class User implements UserDetails {
     @Column(length = 20)
     private String phone;
 
-    @Column(name = "avatar_url", length = 500)
-    private String avatarUrl;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "user_type")
     @Builder.Default
     private UserType userType = UserType.CUSTOMER;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    @Builder.Default
+    private UserStatus status = UserStatus.INACTIVE;
+
     @Builder.Default
     @Column(name = "is_enabled")
     private Boolean isEnabled = true;
-
-    @Builder.Default
-    @Column(name = "is_locked")
-    private Boolean isLocked = false;
 
     @Builder.Default
     @Column(name = "email_verified")
@@ -68,13 +67,6 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "last_login")
-    private LocalDateTime lastLogin;
-
-    @Builder.Default
-    @Column(name = "failed_login_attempts")
-    private Integer failedLoginAttempts = 0;
-
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
@@ -84,24 +76,16 @@ public class User implements UserDetails {
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
-    // User Type Enum
-    public enum UserType {
-        CUSTOMER,  // Khách hàng tự đăng ký
-        EMPLOYEE   // Nhân viên (admin tạo)
-    }
-
-    // Spring Security UserDetails
+    // Spring Security UserDetails implementation
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         Set<GrantedAuthority> authorities = new HashSet<>();
-
         for (Role role : roles) {
             authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getName()));
-            for (Permission permission : role.getPermissions()) {
-                authorities.add(new SimpleGrantedAuthority(permission.getName()));
-            }
+            role.getPermissions().forEach(permission ->
+                    authorities.add(new SimpleGrantedAuthority(permission.getName()))
+            );
         }
-
         return authorities;
     }
 
@@ -112,7 +96,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return isEnabled && emailVerified;
+        return isEnabled && emailVerified && (status == UserStatus.ACTIVE);
     }
 
     @Override
@@ -122,7 +106,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return !isLocked;
+        return status != UserStatus.SUSPENDED;
     }
 
     @Override
@@ -130,5 +114,25 @@ public class User implements UserDetails {
         return true;
     }
 
+    // Helper methods
+    public boolean isCustomer() {
+        return userType == UserType.CUSTOMER;
+    }
 
+    public boolean isAdmin() {
+        return userType == UserType.ADMIN;
+    }
+
+    public boolean isActive() {
+        return status == UserStatus.ACTIVE;
+    }
+
+
+    public boolean isSuspended() {
+        return status == UserStatus.SUSPENDED;
+    }
+
+    public boolean isInactive() {
+        return status == UserStatus.INACTIVE;
+    }
 }
